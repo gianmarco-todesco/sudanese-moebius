@@ -365,7 +365,8 @@ class MoebiusSurface {
         const dynamicTexture = this.dynamicTexture = new BABYLON.DynamicTexture("dynamicTexture", { 
             width: textureSize, 
             height: textureSize,
-        }, scene);
+        }, scene, true);
+        dynamicTexture.hasAlpha = true; // Enable alpha channel
         this.drawTextureA();
         
         dynamicTexture.wrapU = BABYLON.Texture.WRAP_ADDRESSMODE;
@@ -421,6 +422,41 @@ class MoebiusSurface {
         this.dynamicTexture.update();
     }
 
+    drawTextureC() {
+        this.dynamicTexture.hasAlpha = true;
+        const context = this.dynamicTexture.getContext();
+        // Set texture wrap mode to repeat
+        // Draw the checkerboard pattern
+        context.clearRect(0, 0, this.textureSize, this.textureSize); // Clear the canvas
+        //context.fillStyle = "rgba(0,0,0,0)"; // Set the background color to white
+        // context.clearRect(0, 0, this.textureSize, this.textureSize); // Clear the canvas
+        //context.fillRect(0, 0, this.textureSize, this.textureSize); // Clear the canvas
+
+        context.fillStyle = "red"; // Set the background color to white
+        let n = 5;
+        let sz = this.textureSize;
+        let d = sz/(2*n-1)
+        for(let i=0;i<n;i++) {           
+            context.fillRect(0, i*2*d, sz, d);
+        }
+        context.fillStyle = "black"; // Set the background color to white
+        let mrg = d*0.125;
+        for(let i=0;i<n;i++) {           
+            let y0 = i*2*d, y1 = y0+d;
+            context.fillRect(0,y0, sz, mrg);
+            context.fillRect(0,y1-mrg, sz, mrg);
+
+        }
+        let w = sz/32;
+        mrg = w*0.125;
+        context.fillStyle="yellow";
+        context.fillRect(0,0,w,sz);
+        context.fillStyle="black";
+        context.fillRect(0,0,mrg,sz);
+        context.fillRect(w-mrg,0,mrg,sz);
+
+        this.dynamicTexture.update();
+    }
 
     setMode(mode) {
         if(mode==0) {
@@ -435,6 +471,10 @@ class MoebiusSurface {
             // this.drawTextureA();
             this.updateIndices(false);
             this.mesh.isVisible = false;
+        } else if(mode==3) {
+            this.drawTextureC();
+            this.updateIndices(false);
+            this.mesh.isVisible = true;
         }
     }
 
@@ -512,27 +552,7 @@ function populateScene(scene) {
 }
 
 
-function createSlider(onChange) {
-    // Slider per il parametro 1
-    const slider1 = new BABYLON.GUI.Slider();
-    slider1.minimum = 0;
-    slider1.maximum = 1;
-    slider1.value = param1;
-    slider1.height = "30px";
-    slider1.paddingBottom = "10px";
-    
-    slider1.width = "200px";
-    slider1.color = "white";
-    slider1.background = "gray";
-    slider1.onValueChangedObservable.add((value) => {
-        onChange(value);
-    });
-    return slider1;
-}
-
 let gui, guiMainPanel;
-
-let myControl;
 
 function createGUI(scene) {
     // Crea un AdvancedDynamicTexture per la GUI
@@ -548,92 +568,27 @@ function createGUI(scene) {
     
     gui.addControl(guiMainPanel);
     let panel = guiMainPanel;
-    // Slider per il parametro 1
-    const slider1 = createSlider(function(value) {surface.setParam1(value);}) 
-    panel.addControl(slider1);
-    const slider2 = createSlider(function(value) {surface.setParam2(value);}) 
-    panel.addControl(slider2);
 
-    function createRadioButton(labelText, onChecked) {
-        const radioButton = new BABYLON.GUI.RadioButton();
-        radioButton.width = "20px";
-        radioButton.height = "20px";
-        radioButton.color = "white";
-        radioButton.background = "gray";
-        radioButton.onIsCheckedChangedObservable.add((isChecked) => {
-            if (isChecked) {
-                onChecked();
-            }
-        });
+    let mainSlider = new Slider("mainSlider");
+    mainSlider.onChange = function(value) { surface.setParam1(value); }
+    panel.addControl(mainSlider)
 
-        const label = new BABYLON.GUI.TextBlock();
-        label.text = labelText;
-        label.width = "100px";
-        label.height = "30px";
-        label.color = "white";
-
-        const container = new BABYLON.GUI.StackPanel();
-        container.height = "50px";
-        container.isVertical = false;
-        container.addControl(radioButton);
-        container.addControl(label);
-        
-        return {
-            container,
-            radioButton
-        }
-    }
-
-    const radioButton1 = createRadioButton("scacchiera", function() {
-        radioButton2.radioButton.isChecked = false; 
-        surface.setMode(0);
-    });
-
-    panel.addControl(radioButton1.container);
-    const radioButton2 = createRadioButton("Strisce2", function() {
-        radioButton1.radioButton.isChecked = false; 
-        surface.setMode(1);
-    });    
-    panel.addControl(radioButton2.container);
-    radioButton1.radioButton.isChecked = true; // Imposta il primo radio button come selezionato di default
-
-
-    myControl = new Slider("MyControl");
-    myControl.onChange = function(value) {
-        surface.setParam1(value);
-        // console.log("myControl", value);
-    }
-    // myControl.top = "100px";
-    // myControl.left = "10px";
-    panel.addControl(myControl)
-
-    let t;
-    t = new RoundSlider();
-    panel.addControl(t)
-    t.onChange = function(value) {
-        surface.setParam2(value);
-        // console.log("t", value);
-    }
-
-    t = new RadioButtonsGroup("r", [
-        {label:"uno"},
-        {label:"due"},
-        {label:"tre"},
-        {label:"quattro"},
+    let roundSlider = new RoundSlider("roundSlider");
+    roundSlider.onChange = function(value) { surface.setParam2(value); }
+    panel.addControl(roundSlider);
+    
+    let radioButtons = new RadioButtonsGroup("r", [
+        {label:"Scacchiera", mode:0},
+        {label:"Meridiani", mode:1},
+        {label:"Paralleli", mode:3},
+        {label:"Solo bordo", mode:2},
         
     ])
-    panel.addControl(t)
-    /*
-    let uff;
-    uff = new BABYLON.GUI.Rectangle();
-    uff.width = "100px";
-    uff.height = "30px";
-    panel.addControl(uff);
-    uff = new BABYLON.GUI.Rectangle();
-    uff.width = "100px";
-    uff.height = "30px";
-    panel.addControl(uff);
-    */
+    radioButtons.onChange = function(option) {
+        surface.setMode(option.mode);
+    }
+    panel.addControl(radioButtons)
+   
 
 
 }

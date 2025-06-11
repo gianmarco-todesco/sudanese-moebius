@@ -249,13 +249,39 @@ class RadioButtonsGroup extends BABYLON.GUI.Control {
     constructor(name, options) {
         super(name);
         this.options = options || [];
-        this.width = "100px";
+        this.width = "200px";
         this.height = "400px";
         this.isPointerBlocker = true; // Per intercettare gli eventi del mouse
         this.x = 10;
         this.offset = 0;    
         this._active = false;
         this.angle = 0;
+        this.lineHeight = 30;
+        this._highlightedLine = -1;
+        this._selectedOption = 0;
+    }
+
+    get highlightedLine() {
+        return this._highlightedLine;
+    }
+    set highlightedLine(value) {
+        if(value != this._highlightedLine) {
+            this._highlightedLine = value;
+            this._markAsDirty();
+        }
+    }
+
+    get selectedOption() {
+        return this._selectedOption;
+    }   
+    set selectedOption(value) {
+        if(value != this._selectedOption) {
+            this._selectedOption = value;
+            this._markAsDirty();
+            if(this.onChange) {
+                this.onChange(this.options[value]);
+            }
+        }
     }
 
     _draw(ctx) {
@@ -263,24 +289,32 @@ class RadioButtonsGroup extends BABYLON.GUI.Control {
         const {left,top,width,height} = this._currentMeasure;
         for(let i=0; i<this.options.length; i++) {
             let text = this.options[i].label;
-            let y = top + i * 40;
-            ctx.fillStyle = "gray";
-            ctx.fillRect(left, y, width, 30);
-            ctx.strokeStyle = "black";
-            ctx.lineWidth = 0.5;
-            ctx.strokeRect(left, y, width, 30);
+            let y0 = top + i * this.lineHeight;
+            /*
+            if(i==this._highlightedLine) {
+                ctx.fillStyle = "gray";
+                ctx.fillRect(left, y0, width, 30);                
+            }
+            */
             
-            ctx.fillStyle = "orange"; // option.selected ? "orange" : "white";
+            ctx.fillStyle = "white";
+            let x = left + 20, y = y0 + this.lineHeight/2;
+            let r0 = 5, r1 = 7;
+            if(i==this._selectedOption) {
+                ctx.beginPath();
+                ctx.arc(x, y, r0, 0, 2 * Math.PI);
+                ctx.fill();
+            }
             ctx.beginPath();
-            let x = left + 10;
-            let dotY = y + 15;
-            ctx.moveTo(x + 10, dotY);
-            ctx.arc(x, dotY, 10, 0, 2 * Math.PI);
-            ctx.fill();
-            
-            ctx.fillStyle = "black";
+            ctx.moveTo(x+r1, y);
+            ctx.arc(x, y, r1, 0, 2 * Math.PI);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'white';
+            ctx.stroke();
+
+            ctx.fillStyle = i == this._highlightedLine ? "orange" : "white";
             ctx.font = "14px Arial";
-            ctx.fillText(text, left + 30, dotY + 5);
+            ctx.fillText(text, left + 30, y0 + this.lineHeight/2 + 5);
         }
     }
 
@@ -294,23 +328,18 @@ class RadioButtonsGroup extends BABYLON.GUI.Control {
     }
     _onPointerOut() {
         this.active = false;
+        this.highlightedLine = -1;
     }
 
     _onPointerDown(target, coordinates, pointerId, buttonIndex, pi) {
         if (!super._onPointerDown(target, coordinates, pointerId, buttonIndex, pi)) {
             return false;
         }
-        
-        this._pointerIsDown = true;
-        this._host._capturingControl[pointerId] = this;
-        this._lastPointerDownId = pointerId;
-        let x = coordinates.x - this._currentMeasure.left;
         let y = coordinates.y - this._currentMeasure.top;
-
-        this.offset = {
-            x:this.dotPosition.x - x, 
-            y:this.dotPosition.y - y
-        };
+        this.selectedOption = Math.floor(y/this.lineHeight);
+        if(this.onChange) {
+            this.onChange(this.options[this._selectedOption]);
+        }
         return true;
     }
     _onPointerUp(target, coordinates, pointerId, buttonIndex, notifyClick) {
@@ -323,6 +352,7 @@ class RadioButtonsGroup extends BABYLON.GUI.Control {
         let x = coordinates.x - this._currentMeasure.left;
         let y = coordinates.y - this._currentMeasure.top;
         if (pointerId != this._lastPointerDownId || !this._pointerIsDown) {
+            this.highlightedLine = Math.floor(y/this.lineHeight);
             return;
         }
         this._markAsDirty()
